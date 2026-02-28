@@ -1,1 +1,89 @@
+<!doctype html>
+<html lang="pt-br">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Scanner NFC-e → Planilha</title>
+  <script src="https://unpkg.com/html5-qrcode@2.3.10"></script>
+  <style>
+    body { font-family: Arial, sans-serif; padding: 16px; text-align:center; }
+    #reader { width: 100%; max-width: 420px; margin: 12px auto; }
+    button { padding: 12px 16px; font-size: 16px; }
+    .status { margin-top: 12px; font-size: 14px; white-space: pre-wrap; }
+  </style>
+</head>
+<body>
+  <h2>Escanear QR da NFC-e</h2>
+  <p>Ao ler, o link é salvo automaticamente na sua planilha (via Google Forms).</p>
 
+  <div id="reader"></div>
+  <button id="btn">Iniciar câmera</button>
+  <div class="status" id="status"></div>
+
+  <!-- envio sem CORS: form escondido + iframe -->
+  <iframe name="hidden_iframe" style="display:none;"></iframe>
+  <form id="hiddenForm" target="hidden_iframe" method="POST" style="display:none;">
+    <input id="hiddenInput" name="" value="" />
+  </form>
+
+  <script>
+    // ✅ TROQUE ESTES DOIS:
+    const FORM_ACTION_URL = "https://docs.google.com/forms/d/e/SEU_FORM_ID/formResponse";
+    const ENTRY_ID = "entry.1234567890"; // o entry do seu campo qr_url
+
+    const statusEl = document.getElementById("status");
+    const btn = document.getElementById("btn");
+
+    let qr;
+
+    function setStatus(msg) { statusEl.textContent = msg; }
+
+    function normalizeUrl(u) {
+      // Corrige pipes | (SP) se vierem crus
+      return String(u).trim().replace(/\|/g, "%7C");
+    }
+
+    function sendToForm(link) {
+      const form = document.getElementById("hiddenForm");
+      const input = document.getElementById("hiddenInput");
+
+      form.action = FORM_ACTION_URL;
+      input.name = ENTRY_ID;
+      input.value = link;
+
+      form.submit();
+    }
+
+    async function start() {
+      if (qr) return;
+
+      setStatus("Abrindo câmera…");
+      qr = new Html5Qrcode("reader");
+
+      try {
+        await qr.start(
+          { facingMode: "environment" },
+          { fps: 10, qrbox: 250 },
+          (decodedText) => {
+            const link = normalizeUrl(decodedText);
+            setStatus("Lido:\n" + link + "\n\nSalvando na planilha…");
+
+            sendToForm(link);
+
+            // para evitar múltiplos envios
+            qr.stop().then(() => {
+              setStatus("✅ Salvo! Pode escanear outro (recarregue a página).");
+            });
+          },
+          () => {}
+        );
+        setStatus("Aponte para o QR Code…");
+      } catch (e) {
+        setStatus("❌ Erro ao iniciar câmera:\n" + e);
+      }
+    }
+
+    btn.addEventListener("click", start);
+  </script>
+</body>
+</html>
