@@ -10,6 +10,7 @@
     #reader { width: 100%; max-width: 420px; margin: 12px auto; }
     button { padding: 12px 16px; font-size: 16px; }
     .status { margin-top: 12px; font-size: 14px; white-space: pre-wrap; }
+    .small { font-size: 12px; opacity: 0.8; }
   </style>
 </head>
 <body>
@@ -19,22 +20,23 @@
   <div id="reader"></div>
   <button id="btn">Iniciar câmera</button>
   <div class="status" id="status"></div>
+  <div class="small">Dica: use a câmera traseira e boa iluminação.</div>
 
-  <!-- envio sem CORS: form escondido + iframe -->
+  <!-- Envio sem CORS: form escondido + iframe -->
   <iframe name="hidden_iframe" style="display:none;"></iframe>
   <form id="hiddenForm" target="hidden_iframe" method="POST" style="display:none;">
     <input id="hiddenInput" name="" value="" />
   </form>
 
   <script>
-    // ✅ TROQUE ESTES DOIS:
-    const FORM_ACTION_URL = "https://docs.google.com/forms/d/e/SEU_FORM_ID/formResponse";
-    const ENTRY_ID = "entry.1234567890"; // o entry do seu campo qr_url
+    const FORM_ACTION_URL = "https://docs.google.com/forms/d/e/1FAIpQLSfKukLzJSq9hQEk8l4rB4lRtvAT6S2xBUfHZFeDyPxwv649SQ/formResponse";
+    const ENTRY_ID = "entry.686525639";
 
     const statusEl = document.getElementById("status");
     const btn = document.getElementById("btn");
 
     let qr;
+    let lastSent = "";
 
     function setStatus(msg) { statusEl.textContent = msg; }
 
@@ -58,6 +60,8 @@
       if (qr) return;
 
       setStatus("Abrindo câmera…");
+      btn.disabled = true;
+
       qr = new Html5Qrcode("reader");
 
       try {
@@ -66,20 +70,29 @@
           { fps: 10, qrbox: 250 },
           (decodedText) => {
             const link = normalizeUrl(decodedText);
-            setStatus("Lido:\n" + link + "\n\nSalvando na planilha…");
 
+            // Evita enviar duplicado se o QR for lido várias vezes
+            if (link === lastSent) return;
+            lastSent = link;
+
+            setStatus("Lido:\n" + link + "\n\nSalvando na planilha…");
             sendToForm(link);
 
-            // para evitar múltiplos envios
+            // Para a câmera após salvar (você pode recarregar pra próximo)
             qr.stop().then(() => {
-              setStatus("✅ Salvo! Pode escanear outro (recarregue a página).");
+              setStatus("✅ Salvo! Recarregue a página para escanear outro recibo.");
+              qr = null;
+              btn.disabled = false;
             });
           },
           () => {}
         );
+
         setStatus("Aponte para o QR Code…");
       } catch (e) {
         setStatus("❌ Erro ao iniciar câmera:\n" + e);
+        btn.disabled = false;
+        qr = null;
       }
     }
 
